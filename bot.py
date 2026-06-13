@@ -510,6 +510,8 @@ def _get_youtube_service():
     import base64
     creds = None
 
+    token_b64 = os.getenv("YOUTUBE_TOKEN_B64")
+
     if token_b64:
         try:
             token_b64_clean = "".join(token_b64.split())
