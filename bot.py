@@ -510,11 +510,31 @@ def _get_youtube_service():
     import base64
     creds = None
 
-    # Try Railway env var first (cloud deployment)
-    token_b64 = os.getenv("YOUTUBE_TOKEN_B64")
     if token_b64:
-        token_json = base64.b64decode(token_b64).decode()
-        creds = Credentials.from_authorized_user_info(json.loads(token_json), YOUTUBE_SCOPES)
+        try:
+            token_b64_clean = "".join(token_b64.split())
+            log.info(f"Token length: {len(token_b64_clean)}")
+            token_json = base64.b64decode(token_b64_clean).decode()
+            token_data = json.loads(token_json)
+            creds = Credentials.from_authorized_user_info(token_data, YOUTUBE_SCOPES)
+            log.info(f"Creds valid: {creds.valid}, expired: {creds.expired}")
+        except Exception as e:
+            log.error(f"Token decode error: {e}")
+            creds = None
+    elif os.path.exists(TOKEN_FILE):
+        creds = Credentials.from_authorized_user_file(TOKEN_FILE, YOUTUBE_SCOPES)
+
+    if creds and creds.expired and creds.refresh_token:
+        log.info("Refreshing expired token...")
+        creds.refresh(Request())
+
+    if not creds or not creds.valid:
+        raise RuntimeError(
+            "No valid YouTube credentials found.\n"
+            "Run auth_setup.py on your local PC first, then add YOUTUBE_TOKEN_B64 to Railway."
+        )
+
+    return build("youtube", "v3", credentials=creds)
 
     # Fall back to local file (local development)
     elif os.path.exists(TOKEN_FILE):
