@@ -502,60 +502,28 @@ You don't need to do anything. The video is live. 🚀
 # YOUTUBE AUTH
 # ══════════════════════════════════════════════════════════════════════════════
 def _get_youtube_service():
-    """
-    Get authenticated YouTube service.
-    On Railway: reads token from YOUTUBE_TOKEN_B64 environment variable.
-    Locally: reads from youtube_token.json file.
-    """
     import base64
     creds = None
-
     token_b64 = os.getenv("YOUTUBE_TOKEN_B64")
-
+    log.info(f"Token present: {bool(token_b64)}, length: {len(token_b64) if token_b64 else 0}")
     if token_b64:
         try:
             token_b64_clean = "".join(token_b64.split())
-            log.info(f"Token length: {len(token_b64_clean)}")
             token_json = base64.b64decode(token_b64_clean).decode()
             token_data = json.loads(token_json)
+            log.info(f"Token keys: {list(token_data.keys())}")
             creds = Credentials.from_authorized_user_info(token_data, YOUTUBE_SCOPES)
             log.info(f"Creds valid: {creds.valid}, expired: {creds.expired}")
         except Exception as e:
-            log.error(f"Token decode error: {e}")
+            log.error(f"Token error: {e}")
             creds = None
     elif os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, YOUTUBE_SCOPES)
-
     if creds and creds.expired and creds.refresh_token:
         log.info("Refreshing expired token...")
         creds.refresh(Request())
-
     if not creds or not creds.valid:
-        raise RuntimeError(
-            "No valid YouTube credentials found.\n"
-            "Run auth_setup.py on your local PC first, then add YOUTUBE_TOKEN_B64 to Railway."
-        )
-
-    return build("youtube", "v3", credentials=creds)
-
-    # Fall back to local file (local development)
-    elif os.path.exists(TOKEN_FILE):
-        creds = Credentials.from_authorized_user_file(TOKEN_FILE, YOUTUBE_SCOPES)
-
-    # Refresh if expired
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        # Save refreshed token back to env var (update local file at minimum)
-        if os.path.exists(TOKEN_FILE):
-            with open(TOKEN_FILE, "w") as f:
-                f.write(creds.to_json())
-
-    if not creds or not creds.valid:
-        raise RuntimeError(
-            "No valid YouTube credentials found.\n"
-            "Run auth_setup.py on your local PC first, then add YOUTUBE_TOKEN_B64 to Railway."
-        )
-
+        raise RuntimeError("No valid YouTube credentials found.")
     return build("youtube", "v3", credentials=creds)
 
 
